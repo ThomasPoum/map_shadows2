@@ -302,7 +302,7 @@ document
 async function loadTerraces() {
   try {
     // Charger le GeoJSON
-    const response = await fetch("./geojson_final.geojson");
+    const response = await fetch("./Geojson_final.geojson");
     if (!response.ok) {
       throw new Error(
         `Erreur lors du chargement du GeoJSON: ${response.status}`
