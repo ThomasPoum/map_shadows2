@@ -153,6 +153,9 @@ map.on("load", () => {
 
   // Premier rendu d'ombres
   updateShadows();
+  
+  // Positionner le marqueur à l'emplacement de l'utilisateur
+  setUserLocation();
 });
 
 // Recalcul des ombres après un pan / zoom de la carte
@@ -231,10 +234,42 @@ function updateShadows() {
   map.getSource("shadows").setData(shadows);
 }
 
-// 1. Ajouter un marker draggable au centre initial
-const marker = new mapboxgl.Marker({ draggable: true })
-  .setLngLat([2.3522, 48.8566]) // ou la coordonnée de ton choix
-  .addTo(map);
+// 1. Ajouter un marker draggable à la position de l'utilisateur ou au centre de Paris par défaut
+const marker = new mapboxgl.Marker({ draggable: true });
+
+// Fonction pour positionner le marqueur et la carte à la position actuelle de l'utilisateur
+function setUserLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLocation = [position.coords.longitude, position.coords.latitude];
+        marker.setLngLat(userLocation).addTo(map);
+        map.flyTo({ center: userLocation, zoom: 17 });
+        
+        // Met à jour les ombres et les terrasses après avoir positionné le marqueur
+        setTimeout(() => {
+          updateShadows();
+          updateMarkerShadowStatus();
+          updateSunnyTerraces();
+        }, 500);
+      },
+      (error) => {
+        console.warn("Erreur de géolocalisation:", error.message);
+        // Position par défaut sur Paris si la géolocalisation échoue
+        marker.setLngLat([2.3522, 48.8566]).addTo(map);
+        updateMarkerShadowStatus();
+        updateSunnyTerraces();
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  } else {
+    console.warn("La géolocalisation n'est pas supportée par ce navigateur.");
+    // Position par défaut sur Paris si la géolocalisation n'est pas supportée
+    marker.setLngLat([2.3522, 48.8566]).addTo(map);
+    updateMarkerShadowStatus();
+    updateSunnyTerraces();
+  }
+}
 
 // 2. Fonction qui vérifie l'état (ombre/soleil) et affiche un popup
 function updateMarkerShadowStatus() {
@@ -601,4 +636,73 @@ function computeSunPercentage(terrace) {
 document.getElementById("datetime-picker").addEventListener("input", () => {
   updateShadows(); // Met à jour les ombres
   updateSunnyTerraces(); // Met à jour la liste des terrasses au soleil
+});
+
+/**
+ * Gestion du toggle entre les vues liste et carte
+ */
+document.addEventListener("DOMContentLoaded", () => {
+  // Récupération des éléments de l'interface
+  const listViewBtn = document.getElementById("list-view-btn");
+  const mapViewBtn = document.getElementById("map-view-btn");
+  const listView = document.querySelector(".list-view");
+  const mapView = document.querySelector(".map-view");
+  const recenterMapBtn = document.getElementById("recenter-map");
+  
+  // Fonction pour basculer vers la vue liste
+  function showListView() {
+    listView.style.display = "block";
+    mapView.style.display = "none";
+    listViewBtn.classList.add("active");
+    mapViewBtn.classList.remove("active");
+  }
+  
+  // Fonction pour basculer vers la vue carte
+  function showMapView() {
+    listView.style.display = "none";
+    mapView.style.display = "block";
+    listViewBtn.classList.remove("active");
+    mapViewBtn.classList.add("active");
+    
+    // Trigger a resize event to ensure the map renders correctly
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      // Recalcul des ombres après un changement de vue
+      updateShadows();
+    }, 100);
+  }
+  
+  // Écouteurs d'événements pour les boutons
+  listViewBtn.addEventListener("click", showListView);
+  mapViewBtn.addEventListener("click", showMapView);
+  
+  // Bouton pour recentrer la carte sur la position actuelle du marqueur
+  if (recenterMapBtn) {
+    recenterMapBtn.addEventListener("click", () => {
+      const markerPosition = marker.getLngLat();
+      map.flyTo({
+        center: [markerPosition.lng, markerPosition.lat],
+        zoom: 17,
+        duration: 1000
+      });
+    });
+  }
+  
+  // Bouton pour géolocaliser l'utilisateur
+  const geolocateBtn = document.getElementById("geolocate-user");
+  if (geolocateBtn) {
+    geolocateBtn.addEventListener("click", () => {
+      setUserLocation();
+    });
+  }
+  
+  // Quand on clique sur une terrasse dans la liste, passer automatiquement en vue carte
+  document.getElementById("sunny-terraces-list").addEventListener("click", (e) => {
+    if (e.target.closest(".terrace-item")) {
+      showMapView();
+    }
+  });
+  
+  // Afficher la vue liste par défaut au chargement
+  showListView();
 });

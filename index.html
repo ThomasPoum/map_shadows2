@@ -2,37 +2,120 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tom's sun</title>
   <link
   href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
   rel="stylesheet"
 />
   <style>
-    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-    #map { width: 100vw; height: 100vh; }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: Arial, sans-serif; 
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* Conteneur principal avec les deux vues */
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Barre de navigation supérieure */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background-color: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 10;
+    }
+
+    /* Style pour le sélecteur de date/heure */
     #datetime-picker {
-      position: absolute;
-      top: 10px; left: 10px;
-      z-index: 1;
-      background: white;
       padding: 8px;
+      border: 1px solid #ddd;
       border-radius: 4px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      font-size: 14px;
+    }
+
+    /* Conteneur des boutons de contrôle */
+    .controls-container {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Toggle boutons pour vue carte/liste */
+    .view-toggle {
+      display: flex;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .toggle-btn {
+      padding: 8px 12px;
+      background-color: #f5f5f5;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+
+    .toggle-btn.active {
+      background-color: #4285f4;
+      color: white;
+    }
+
+    /* Conteneur principal du contenu */
+    .content-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      overflow: hidden;
+      height: calc(100vh - 60px); /* Hauteur totale moins l'en-tête */
+    }
+
+    /* Styles pour la vue carte */
+    .map-view {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+
+    #map { 
+      width: 100%; 
+      height: 100%; 
+    }
+
+    /* Styles pour la vue liste */
+    .list-view {
+      flex: 1;
+      padding: 0;
+      overflow-y: auto;
+      display: block;
+      height: 100%;
+      max-height: 100%;
     }
     
     /* Style pour le panneau des terrasses au soleil */
     #sunny-terraces-panel {
-      position: absolute;
-      top: 60px;
-      left: 10px;
-      width: 300px;
-      max-height: 70vh;
-      background: white;
-      border-radius: 4px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 15px;
+      box-sizing: border-box;
+      height: 100%;
       overflow-y: auto;
-      z-index: 1;
-      padding: 10px;
     }
     
     #sunny-terraces-header {
@@ -40,8 +123,8 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #eee;
-      padding-bottom: 8px;
-      margin-bottom: 8px;
+      padding-bottom: 12px;
+      margin-bottom: 15px;
     }
     
     #sunny-terraces-list {
@@ -51,34 +134,40 @@
     }
     
     .terrace-item {
-      padding: 8px;
-      border-bottom: 1px solid #f0f0f0;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #f0f0f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       cursor: pointer;
-      transition: background-color 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
     
     .terrace-item:hover {
       background-color: #f9f9f9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
     .terrace-item h3 {
-      margin: 0 0 5px 0;
-      font-size: 14px;
+      margin: 0 0 8px 0;
+      font-size: 16px;
     }
     
     .terrace-item p {
-      margin: 0;
-      font-size: 12px;
+      margin: 5px 0;
+      font-size: 14px;
       color: #666;
     }
     
     .terrace-badge {
       display: inline-block;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 12px;
       color: white;
       margin-right: 5px;
+      font-weight: 500;
     }
     
     .badge-terrasse-ouverte { background-color: rgba(50, 180, 50, 1); }
@@ -88,57 +177,110 @@
     .badge-default { background-color: rgba(200, 200, 80, 1); }
     
     /* Styles pour le bouton de contrôle des couches */
-    #layers-control {
+    .map-controls {
       position: absolute;
-      top: 50px;
-      left: 10px;
+      top: 15px;
+      right: 15px;
       z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     
     .control-button {
       background-color: white;
       border: 1px solid #ccc;
       border-radius: 4px;
-      padding: 6px 12px;
+      padding: 8px 12px;
       cursor: pointer;
       font-size: 14px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      transition: background-color 0.3s;
+      transition: all 0.3s;
     }
     
     .control-button:hover {
       background-color: #f0f0f0;
+      transform: translateY(-1px);
     }
     
     .control-button.active {
-      background-color: #e0e0ff;
-      border-color: #8080ff;
+      background-color: #4285f4;
+      color: white;
+      border-color: #2965c4;
+    }
+    
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .app-header {
+        flex-direction: column;
+        padding: 10px;
+        gap: 10px;
+      }
+      
+      .controls-container {
+        width: 100%;
+        justify-content: space-between;
+      }
+      
+      #sunny-terraces-panel {
+        padding: 10px;
+      }
+      
+      .terrace-item {
+        padding: 12px;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="datetime-picker-container">
-    <label for="datetime-picker">Date et heure: </label>
-    <input type="datetime-local" id="datetime-picker" value="2023-06-21T12:00">
+  <div class="app-container">
+    <!-- Barre de navigation supérieure -->
+    <header class="app-header">
+      <div class="datetime-container">
+        <label for="datetime-picker">Date et heure: </label>
+        <input type="datetime-local" id="datetime-picker" value="2023-06-21T12:00">
+      </div>
+      
+      <div class="controls-container">
+        <!-- Toggle entre vue liste et carte -->
+        <div class="view-toggle">
+          <button id="list-view-btn" class="toggle-btn active">Liste</button>
+          <button id="map-view-btn" class="toggle-btn">Carte</button>
+        </div>
+        
+        <!-- Bouton pour afficher/masquer les autorisations voiries -->
+        <button id="toggle-authorizations" class="control-button">Afficher autorisations</button>
+      </div>
+    </header>
+    
+    <!-- Conteneur principal pour les deux vues -->
+    <main class="content-container">
+      <!-- Vue liste (affichée par défaut) -->
+      <section class="list-view">
+        <!-- Panneau des terrasses au soleil -->
+        <div id="sunny-terraces-panel">
+          <div id="sunny-terraces-header">
+            <h2>Terrasses au soleil au de vous</h2>
+            <span id="terraces-count">0 trouvée(s)</span>
+          </div>
+          <ul id="sunny-terraces-list">
+            <!-- Liste remplie dynamiquement par JavaScript -->
+          </ul>
+        </div>
+      </section>
+      
+      <!-- Vue carte (cachée par défaut) -->
+      <section class="map-view">
+        <div id="map"></div>
+        
+        <!-- Contrôles spécifiques à la carte -->
+        <div class="map-controls">
+          <button id="recenter-map" class="control-button">Recentrer</button>
+          <button id="geolocate-user" class="control-button">Ma position</button>
+        </div>
+      </section>
+    </main>
   </div>
-  
-  <!-- Bouton pour afficher/masquer les autorisations voiries -->
-  <div id="layers-control">
-    <button id="toggle-authorizations" class="control-button">Afficher autorisations voiries</button>
-  </div>
-         
-  <!-- Panneau des terrasses au soleil -->
-  <div id="sunny-terraces-panel">
-    <div id="sunny-terraces-header">
-      <h2>Terrasses au soleil</h2>
-      <span id="terraces-count">0 trouvée(s)</span>
-    </div>
-    <ul id="sunny-terraces-list">
-      <!-- Liste remplie dynamiquement par JavaScript -->
-    </ul>
-  </div>
-  
-  <div id="map"></div>
 
   <!-- Bibliothèques externes -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
